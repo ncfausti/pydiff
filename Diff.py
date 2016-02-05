@@ -1,6 +1,42 @@
 import json
+class Diff:
+    def __init__(self):
+        self.first = {}
+        self.second = {}
+        self.results = {}
 
-first = """{
+    def walk(self, obj, parent=""):
+        for k,v in obj.iteritems():
+            if isinstance(v, dict):
+                self.walk(v,k)
+            else:
+                if parent:
+                    if k in self.second[parent]:
+                        if v != self.second[parent][k]:
+                            self.results[parent] = {k:self.second[parent][k]}
+                else:
+                    # New Item
+                    if k in self.second and k not in self.first:
+                        self.results[k] = self.second[k]
+                    # Deleted Item
+                    if k in self.first and k not in self.second:
+                        self.results[k] = "undefined"
+                    # Updated Item
+                    if k in self.first and k in self.second:
+                        if self.first[k] != self.second[k]:
+                            self.results[k] = self.second[k]
+
+    # Takes in two raw json strings
+    # Returns difference as json object
+    def diff(self, first, second):
+        self.first = json.loads(first)
+        self.second = json.loads(second)
+        self.walk(self.first)
+        self.walk(self.second)
+        return self.results
+
+jsonA1 = """
+{
   "foo": {
     "bar": "baz",
     "biz": "foo"
@@ -16,7 +52,8 @@ first = """{
   "miss": 123
 }
 """
-second = """{
+jsonA2 = """
+{
   "foo": {
     "bar": "baz1",
     "biz": "foo"
@@ -32,8 +69,7 @@ second = """{
 }
 """
 
-different = json.loads(
-'''
+differenceA = json.loads('''
 {
   "foo": {
     "bar": "baz1"
@@ -44,78 +80,106 @@ different = json.loads(
   "miss": "undefined",
   "new_value": 1
 }''')
-first, second = json.loads(first), json.loads(second)
 
-same = {}
-diff = {}
 
-def walk(obj,level, parent=""):
-    level += 1
-    for k,v in obj.iteritems():
-        if isinstance(v, dict):
-            print 'walk({0}, {1}, {2})'.format(v,level,k)
-            walk(v, level, k)
-        else:
-            if parent:
-                print "parent: ",parent,"k:", k
-                if k in second[parent]:
-                    print "second[parent][k]: ", second[parent][k]
-                    print "second[parent]: ", second[parent]
-                    if v != second[parent][k]:
-                        print "MISMATCH"
-                        diff[parent] = {k:second[parent][k]}
-            else:
-                print "k: {0},v:{1}".format(k,v)
-                # New Item
-                if k in second and k not in first:
-                    print "IN SECOND, NOT FIRST", k, v
-                    diff[k] = second[k]
-                # Deleted Item
-                if k in first and k not in second:
-                    print "IN FIRST, NOT SECOND", k, v
-                    diff[k] = "undefined"
-                # Updated Item
-                if k in first and k in second:
-                    if first[k] != second[k]:
-                        diff[k] = second[k]
-                        print "UPDATED TO: ", k, second[k]
+jsonB1 = """
+{
+  "foo": {
+    "bar": "baz",
+    "biz": "foo"
+  },
+  "fiz": {
+    "foo": "baz"
+  },
+  "bar": "baz",
+  "baz": [
+    "foo",
+    "bar"
+  ],
+  "miss": 123
+}
+"""
+jsonB2 = """
+{
+  "foo": {
+    "bar": "baz",
+    "biz": "foo"
+  },
+  "fiz": {
+    "foo": "baz"
+  },
+  "bar": "baz",
+  "baz": [
+    "foo",
+    "bar"
+  ],
+  "miss": 123
+}
+"""
 
-diff = {}
+differenceB = json.loads('''
+{
 
-def add(k,v,toObj):
-    toObj[k] = v
+}''')
 
-#for k,v in first.iteritems():
-#    add(k,v,diff)
-#add("foo", 123, diff)
-print 'DIFF'
-#walk(diff, -1)
+jsonC1 = """
+{
+  "foo": {
+    "bar": "baz",
+    "biz": "foo"
+  },
+  "fiz": {
+    "foo": "baz"
+  },
+  "bar": "baz",
+  "baz": [
+    "foo",
+    "bar"
+  ],
+  "miss": 999999
+}
+"""
+jsonC2 = """
+{
+  "foo": {
+    "bar": "baz",
+    "biz": "foo"
+  },
+  "fiz": {
+    "foo": "baz",
+    "new": "zab"
+  },
+  "bar": "baz",
+  "baz": [
+    "foo",
+    "bar"
+  ],
+  "miss": 123
+}
+"""
 
-### Loop through second object checking if K:Vs exist in first,
-### If not, add to diff
-def update(firstObj, fromObj):
-    pass
+differenceC = json.loads('''
+{
+"miss":123
+}''')
 
-class Diff:
-    def __init__(self):
-        pass
-print 'FIRST'
-walk(first,-1,{})
-
-print "SECOND"
-walk(second,-1,{})
-
-### ALGORITHM ###
-'''
-ls  = set([x for x in first.iterkeys()])
-ls2 = set([x for x in second.iterkeys()])
-diffKeys = ls.union(ls2)
-print "DIFF KEYS\n",diffKeys
-'''
+###       ###
 ### TESTS ###
+###       ###
+test = Diff()
+resultsA = test.diff(jsonA1,jsonA2)
 
-#assert(d.diff(first, second) == different)
+test = Diff()
+resultsB = test.diff(jsonB1,jsonB2)
 
-### HOW TO RUN ###
-print "DIFFFFF"
-print diff
+test = Diff()
+resultsC = test.diff(jsonC1,jsonC2)
+
+assert(resultsA == differenceA)
+print resultsA
+
+assert(resultsB == differenceB)
+print resultsB
+
+print resultsC
+assert(resultsC == differenceC)
